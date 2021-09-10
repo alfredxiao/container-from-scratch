@@ -48,7 +48,7 @@ func child() {
 	cmd.Stderr = os.Stderr
 
 	must(syscall.Sethostname([]byte("container")))
-	must(syscall.Chroot("/home/alfred/mystudy/container-from-scratch/lizrice/alpine"))
+	must(syscall.Chroot("alpine"))
 	must(os.Chdir("/"))
 	must(syscall.Mount("proc", "proc", "proc", 0, ""))
 	must(syscall.Mount("thing", "mytemp", "tmpfs", 0, ""))
