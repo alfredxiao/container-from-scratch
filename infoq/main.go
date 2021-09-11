@@ -35,12 +35,14 @@ func parent() {
 
 func child() {
 	must(syscall.Sethostname([]byte("container")))
-	/*
-	must(syscall.Mount("rootfs", "rootfs2", "", syscall.MS_BIND, ""))
-	must(os.MkdirAll("rootfs2/oldrootfs", 0700))
-	must(syscall.PivotRoot("rootfs2", "rootfs2/oldrootfs"))
+
+	//must(syscall.Mount("rootfs", "rootfs", "", syscall.MS_BIND, ""))
+	//must(os.MkdirAll("rootfs/oldrootfs", 0700))
+	// This PivotRoot does not work on my RHEL8, erroring Invalid Argument
+	// must(syscall.PivotRoot("rootfs", "rootfs/oldrootfs"))
+	// So use Chroot instead
+	must(syscall.Chroot("alpine"))
 	must(os.Chdir("/"))
-	*/
 
 	cmd := exec.Command(os.Args[2], os.Args[3:]...)
 	cmd.Stdin = os.Stdin
