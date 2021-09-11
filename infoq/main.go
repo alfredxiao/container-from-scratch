@@ -41,7 +41,7 @@ func child() {
 	// This PivotRoot does not work on my RHEL8, erroring Invalid Argument
 	// must(syscall.PivotRoot("rootfs", "rootfs/oldrootfs"))
 	// So use Chroot instead
-	must(syscall.Chroot("alpine"))
+	must(syscall.Chroot("../alpine"))
 	must(os.Chdir("/"))
 
 	cmd := exec.Command(os.Args[2], os.Args[3:]...)
