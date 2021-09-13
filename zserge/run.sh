@@ -1,2 +1,2 @@
-cc container.c -o container
-sudo ./container /bin/sh
+cc container.c -o main 
+sudo ./main /bin/sh

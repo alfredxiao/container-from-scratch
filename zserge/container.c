@@ -18,12 +18,12 @@ static char child_stack[1024 * 1024];
 
 int child_main(void *arg) {
   unshare(CLONE_NEWNS);
-  //umount2("/proc", MNT_DETACH);
+  // umount2("/proc", MNT_DETACH);
   if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) == -1) errExit("mount-MS_PRIVATE");
 
   /* Pivot root */
   // mount("./rootfs", "./rootfs", "bind", MS_BIND | MS_REC, "");
-  if (mount("rootfs", "rootfs", NULL, MS_BIND, NULL) == -1) errExit("mount-MS_BIND");
+  if (mount("./rootfs", "./rootfs", NULL, MS_BIND, NULL) == -1) errExit("mount-MS_BIND");
 
   mkdir("./rootfs/oldrootfs", 0755);
   int result = syscall(SYS_pivot_root, "./rootfs", "./rootfs/oldrootfs");
@@ -34,10 +34,10 @@ int child_main(void *arg) {
   rmdir("/oldrootfs");
 
   /* Re-mount procfs */
-  //mount("proc", "proc", "proc", 0, NULL);
-  //mount("sysfs", "sys", "sysfs", 0, NULL);
-  //mount("none", "tmp", "tmpfs", 0, NULL);
-  //mount("none", "dev", "tmpfs", MS_NOSUID | MS_STRICTATIME, NULL);
+  if (mount("proc", "/proc", "proc", 0, NULL) == -1) errExit("mount-proc");
+  if (mount("sysfs", "/sys", "sysfs", 0, NULL) == -1) errExit("mount-sys");
+  if (mount("none", "/tmp", "tmpfs", 0, NULL) == -1) errExit("mount-tmp");
+  if (mount("none", "/dev", "tmpfs", MS_NOSUID | MS_STRICTATIME, NULL) == -1) errExit("mount-dev");
 
   sethostname("example", 7);
   system("ip link set veth1 up");
@@ -49,7 +49,11 @@ int child_main(void *arg) {
   system("route add default gw 172.16.0.100 veth1");
 
   char **argv = (char **)arg;
+
+  printf("execute ....");
   execvp(argv[0], argv);
+
+  printf("exit....");
   return 0;
 }
 
