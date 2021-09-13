@@ -11,25 +11,33 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \
+                               } while (0)
+
 static char child_stack[1024 * 1024];
 
 int child_main(void *arg) {
   unshare(CLONE_NEWNS);
-  umount2("/proc", MNT_DETACH);
+  //umount2("/proc", MNT_DETACH);
+  if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) == -1) errExit("mount-MS_PRIVATE");
 
   /* Pivot root */
-  mount("./rootfs", "./rootfs", "bind", MS_BIND | MS_REC, "");
+  // mount("./rootfs", "./rootfs", "bind", MS_BIND | MS_REC, "");
+  if (mount("rootfs", "rootfs", NULL, MS_BIND, NULL) == -1) errExit("mount-MS_BIND");
+
   mkdir("./rootfs/oldrootfs", 0755);
-  syscall(SYS_pivot_root, "./rootfs", "./rootfs/oldrootfs");
-  chdir("/");
+  int result = syscall(SYS_pivot_root, "./rootfs", "./rootfs/oldrootfs");
+  if (result == -1) errExit("pivot_root");
+
+  if (chdir("/") == -1) errExit("chdir");
   umount2("/oldrootfs", MNT_DETACH);
   rmdir("/oldrootfs");
 
   /* Re-mount procfs */
-  mount("proc", "/proc", "proc", 0, NULL);
-  mount("sysfs", "/sys", "sysfs", 0, NULL);
-  mount("none", "/tmp", "tmpfs", 0, NULL);
-  mount("none", "/dev", "tmpfs", MS_NOSUID | MS_STRICTATIME, NULL);
+  //mount("proc", "proc", "proc", 0, NULL);
+  //mount("sysfs", "sys", "sysfs", 0, NULL);
+  //mount("none", "tmp", "tmpfs", 0, NULL);
+  //mount("none", "dev", "tmpfs", MS_NOSUID | MS_STRICTATIME, NULL);
 
   sethostname("example", 7);
   system("ip link set veth1 up");
