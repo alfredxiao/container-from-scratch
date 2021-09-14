@@ -11,13 +11,31 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \
-                               } while (0)
+#define errExit(msg)    do { logn(msg); exit(EXIT_FAILURE); } while (0)
+
+void logn(char *msg) {
+  FILE *logFile;
+  logFile=fopen("main.log", "a");
+  fprintf(logFile, msg);
+  fprintf(logFile, "\n");
+  fclose(logFile);
+}
+
+void logd(char *name, int n) {
+  FILE *logFile;
+  logFile=fopen("main.log", "a");
+  char msg[80];
+  sprintf(msg, "return code for %s=%d\n", name, n);
+  fprintf(logFile, msg);
+  fclose(logFile);
+}
 
 static char child_stack[1024 * 1024];
 
 int child_main(void *arg) {
-  unshare(CLONE_NEWNS);
+  logn("entering child_main()");
+
+  logd("unshare", unshare(CLONE_NEWNS));
   // umount2("/proc", MNT_DETACH);
   if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) == -1) errExit("mount-MS_PRIVATE");
 
@@ -26,12 +44,16 @@ int child_main(void *arg) {
   if (mount("./rootfs", "./rootfs", NULL, MS_BIND, NULL) == -1) errExit("mount-MS_BIND");
 
   mkdir("./rootfs/oldrootfs", 0755);
-  int result = syscall(SYS_pivot_root, "./rootfs", "./rootfs/oldrootfs");
-  if (result == -1) errExit("pivot_root");
+
+  logn("before pivot_root");
+  if (syscall(SYS_pivot_root, "./rootfs", "./rootfs/oldrootfs") == -1) errExit("error-pivotroot");
+  logn("after pivot_root");
 
   if (chdir("/") == -1) errExit("chdir");
   umount2("/oldrootfs", MNT_DETACH);
   rmdir("/oldrootfs");
+
+  logn("before remount");
 
   /* Re-mount procfs */
   if (mount("proc", "/proc", "proc", 0, NULL) == -1) errExit("mount-proc");
@@ -39,40 +61,38 @@ int child_main(void *arg) {
   if (mount("none", "/tmp", "tmpfs", 0, NULL) == -1) errExit("mount-tmp");
   if (mount("none", "/dev", "tmpfs", MS_NOSUID | MS_STRICTATIME, NULL) == -1) errExit("mount-dev");
 
-  sethostname("example", 7);
-  system("ip link set veth1 up");
+  logn("after remount");
 
-  char ip_addr_add[4096];
-  snprintf(ip_addr_add, sizeof(ip_addr_add),
-           "ip addr add 172.16.0.101/24 dev veth1");
-  system(ip_addr_add);
-  system("route add default gw 172.16.0.100 veth1");
+  sethostname("example", 7);
+  logn("after sethostname");
 
   char **argv = (char **)arg;
 
-  printf("execute ....");
+  logn("child execute ....");
   execvp(argv[0], argv);
-
-  printf("exit....");
+  logn("child exit....");
   return 0;
 }
 
 int main(int argc, char *argv[]) {
-  system("ip link add veth0 type veth peer name veth1");
-  system("ip link set veth0 up");
-  system("brctl addif br0 veth0");
-  int flags =
-      CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWPID | CLONE_NEWIPC | CLONE_NEWNET;
-  int pid = clone(child_main, child_stack + sizeof(child_stack),
-                  flags | SIGCHLD, argv + 1);
+  logn("enter main()");
+
+  logn("before clone()");
+  int flags = CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWPID | CLONE_NEWIPC | CLONE_NEWNET;
+  int pid = clone(child_main, child_stack + sizeof(child_stack), flags | SIGCHLD, argv + 1);
+
+  logn("after clone()");
   if (pid < 0) {
     fprintf(stderr, "clone failed: %d\n", errno);
     return 1;
   }
-  char ip_link_set[4096];
-  snprintf(ip_link_set, sizeof(ip_link_set) - 1, "ip link set veth1 netns %d",
-           pid);
-  system(ip_link_set);
+
+  logd("child pid", pid);
+  char slirp[4096];
+  snprintf(slirp, sizeof(slirp) -1, "Please run 'sudo slirp4netns -c %d tap0' in another tab", pid);
+  logn(slirp);
+
+  logn("before waitpid");
   waitpid(pid, NULL, 0);
   return 0;
 }
