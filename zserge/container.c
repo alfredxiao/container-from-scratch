@@ -75,6 +75,7 @@ int child_main(void *arg) {
 }
 
 int main(int argc, char *argv[]) {
+  fprintf(stderr, "Please watch log file main.log!\n");
   logn("enter main()");
 
   logn("before clone()");
